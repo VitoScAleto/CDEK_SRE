@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Test main.py
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Action
+        uses: actions/checkout@v4
+
+      - name: Docker build
+        run: docker compose up -d
+
+      - name: Check container
+        run: docker ps | grep -q metrics-app
+
+      - name: Check status OK
+        run: |
+          sleep 10
+          test "$(curl -s http://localhost:8000/)" = "OK"
+
+      - name: Check metrics
+        run: curl -s http://localhost:8000/metrics | awk '
+          NR==3 && /http_requests_total/ { r=1 }
+          NR==6 && /http_errors_total/ { e=1 }
+          END { if (r && e) {exit 0} else {exit 1}}'
+
+      - name: Stop container
+        run: docker stop metrics-app
